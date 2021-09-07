@@ -4,6 +4,7 @@ using SalesWebMVC.Models.ViewModels;
 using SalesWebMVC.Services;
 using SalesWebMVC.Services.Exceptions;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace SalesWebMVC.Controllers
@@ -50,13 +51,13 @@ namespace SalesWebMVC.Controllers
         {
             if (id == null)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Id não informado." });
             }
 
             var obj = await _sellerService.FindByIdAsync(id.Value);
             if (obj == null)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Id não encontrado." }); ;
             }
             return View(obj);
         }
@@ -65,8 +66,15 @@ namespace SalesWebMVC.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id)
         {
-            await _sellerService.RemoveAsync(id);
-            return RedirectToAction(nameof(Index));
+            try
+            {
+                await _sellerService.RemoveAsync(id);
+                return RedirectToAction(nameof(Index));
+            }
+            catch (IntegrityException e)
+            {
+                return RedirectToAction(nameof(Error), new { message = e.Message });
+            }
 
         }
 
@@ -74,12 +82,12 @@ namespace SalesWebMVC.Controllers
         {
             if (id == null)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Id não informado." }); ;
             }
             var obj = await _sellerService.FindByIdAsync(id.Value);
             if (obj == null)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Id não encontrado." }); ;
             }
 
             return View(obj);
@@ -89,14 +97,15 @@ namespace SalesWebMVC.Controllers
         {
             if (id == null)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Id não informado." });
             }
 
             var obj = await _sellerService.FindByIdAsync(id.Value);
             if (obj == null)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = "Id não encontrado." });
             }
+
             List<Department> departments = await _departmentService.FindAllAsync();
 
             SellerFormViewModel viewModel = new SellerFormViewModel { Seller = obj, Departments = departments };
@@ -115,22 +124,32 @@ namespace SalesWebMVC.Controllers
             }
             if (id != seller.Id)
             {
-                return BadRequest();
+                return RedirectToAction(nameof(Error), new { message = "Id informado é diferente do id do vendedor." });
             }
             try
             {
                 await _sellerService.UpdateAsync(seller);
                 return RedirectToAction(nameof(Index));
             }
-            catch (NotFoundException)
+            catch (NotFoundException e)
             {
-                return NotFound();
+                return RedirectToAction(nameof(Error), new { message = e.Message });
             }
-            catch (DbConcurrencyException)
+            catch (DbConcurrencyException e)
             {
-                return BadRequest();
+                return RedirectToAction(nameof(Error), new { message = e.Message });
             }
-
         }
+
+        public IActionResult Error(string message)
+        {
+            var viewModel = new ErrorViewModel
+            {
+                Message = message,
+                RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier
+            };
+            return View(viewModel);
+        }
+
     }
 }
